@@ -197,14 +197,17 @@ class CrosswordCreator():
         The first value in the list, for example, should be the one
         that rules out the fewest values among the neighbors of `var`.
         """
-        best_value = {value: 0 for value in self.domains[var]}
-        for neighbor in self.crossword.neighbors(var):
-            if neighbor not in assignment:
-                continue
-            neighbor_word = assignment[neighbor]
-            if neighbor_word not in best_value:
-                continue
-            best_value[neighbor_word] += 1
+        remaining_neighbors = [neigbor for neigbor in self.crossword.neighbors(var) if neigbor not in assignment.keys()]
+        best_value = {}
+        for word in self.domains[var]:
+            count = 0
+            for neighbor in remaining_neighbors:
+                var_i, neighbor_i = self.crossword.overlaps[var, neighbor]
+                for word_neighbor in self.domains[neighbor]:
+                    if word[var_i] == word_neighbor[neighbor_i]:
+                        count += 1
+            
+            best_value[word] = count
 
         values = list(best_value.keys())
         values.sort(key=lambda x: best_value[x])
