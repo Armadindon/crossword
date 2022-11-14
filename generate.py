@@ -1,4 +1,5 @@
 import sys
+import random
 
 from crossword import *
 
@@ -99,7 +100,11 @@ class CrosswordCreator():
         (Remove any values that are inconsistent with a variable's unary
          constraints; in this case, the length of the word.)
         """
-        raise NotImplementedError
+        new_domains = {}
+        for val, domain in self.domains.items():
+            new_domains[val] = set(filter(lambda x: len(x) == val.length, domain))
+        
+        self.domains = new_domains
 
     def revise(self, x, y):
         """
@@ -110,7 +115,19 @@ class CrosswordCreator():
         Return True if a revision was made to the domain of `x`; return
         False if no revision was made.
         """
-        raise NotImplementedError
+
+        domain_x, domain_y = self.domains[x], self.domains[y]
+        
+        x_i,y_i = self.crossword.overlaps[x,y]
+        new_domain_x = []
+        for word_x in domain_x:
+            compatible_words = [word_y for word_y in domain_y if word_x[x_i] == word_y[y_i]]
+            if len(compatible_words) != 0:
+                new_domain_x.append(word_x)
+
+        self.domains[x] = new_domain_x
+
+        return len(new_domain_x) != len(domain_x)
 
     def ac3(self, arcs=None):
         """
@@ -121,21 +138,57 @@ class CrosswordCreator():
         Return True if arc consistency is enforced and no domains are empty;
         return False if one or more domains end up empty.
         """
-        raise NotImplementedError
+        if arcs is None:
+            arcs = [(x,y) for x in self.domains.keys() for y in self.crossword.neighbors(x)]
+        
+        queue = arcs.copy()
+
+        while len(queue) != 0:
+            x,y = queue.pop(0)
+            if self.revise(x,y):
+                if len(self.domains[x]) == 0:
+                    return False
+                
+                for neighbor in self.crossword.neighbors(x):
+                    queue.append((x,neighbor))
+        
+        return True
+                
 
     def assignment_complete(self, assignment):
         """
         Return True if `assignment` is complete (i.e., assigns a value to each
         crossword variable); return False otherwise.
         """
-        raise NotImplementedError
+        for var in self.crossword.variables:
+            if var not in assignment:
+                return False
+
+        return True
 
     def consistent(self, assignment):
         """
         Return True if `assignment` is consistent (i.e., words fit in crossword
         puzzle without conflicting characters); return False otherwise.
         """
-        raise NotImplementedError
+        present_words = []
+        for var, word in assignment.items():
+            if word in present_words or len(word) != var.length:
+                return False
+            
+            present_words.append(word)
+
+            for neighbor in self.crossword.neighbors(var):
+                neighbor_word = assignment[neighbor]
+
+                if neighbor_word == None:
+                    continue
+
+                var_i, neighbor_i = self.crossword.overlaps[var,neighbor]
+                if word[var_i] != neighbor_word[neighbor_i]:
+                    return False
+        
+        return True
 
     def order_domain_values(self, var, assignment):
         """
@@ -144,7 +197,7 @@ class CrosswordCreator():
         The first value in the list, for example, should be the one
         that rules out the fewest values among the neighbors of `var`.
         """
-        raise NotImplementedError
+        return self.domains[var]
 
     def select_unassigned_variable(self, assignment):
         """
@@ -154,7 +207,7 @@ class CrosswordCreator():
         degree. If there is a tie, any of the tied variables are acceptable
         return values.
         """
-        raise NotImplementedError
+        return random.choice([variable for variable in self.crossword.variables if variable not in assignment.keys()])
 
     def backtrack(self, assignment):
         """
@@ -165,7 +218,22 @@ class CrosswordCreator():
 
         If no assignment is possible, return None.
         """
-        raise NotImplementedError
+
+        # We chose which variables we will bactrack
+        if self.assignment_complete(assignment):
+            return assignment if self.consistent(assignment) else None
+
+        treated_var = self.select_unassigned_variable(assignment)
+        possible_values = self.order_domain_values(treated_var, assignment)
+        for possible_value in possible_values:
+            possible_assignment = assignment.copy()
+            possible_assignment[treated_var] = possible_value
+
+            new_assignment = self.backtrack(possible_assignment)
+            if new_assignment != None:
+                return new_assignment        
+        
+
 
 
 def main():
