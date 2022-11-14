@@ -197,7 +197,18 @@ class CrosswordCreator():
         The first value in the list, for example, should be the one
         that rules out the fewest values among the neighbors of `var`.
         """
-        return self.domains[var]
+        best_value = {value: 0 for value in self.domains[var]}
+        for neighbor in self.crossword.neighbors(var):
+            if neighbor not in assignment:
+                continue
+            neighbor_word = assignment[neighbor]
+            if neighbor_word not in best_value:
+                continue
+            best_value[neighbor_word] += 1
+
+        values = list(best_value.keys())
+        values.sort(key=lambda x: best_value[x])
+        return values
 
     def select_unassigned_variable(self, assignment):
         """
@@ -207,7 +218,17 @@ class CrosswordCreator():
         degree. If there is a tie, any of the tied variables are acceptable
         return values.
         """
-        return random.choice([variable for variable in self.crossword.variables if variable not in assignment.keys()])
+        remaining_variables = [variable for variable in self.crossword.variables if variable not in assignment.keys()]
+        number_of_values_by_domains = {variable : len(self.domains[variable]) for variable in remaining_variables}
+        remaining_variables_min_remaining_values = [variable for variable in remaining_variables if number_of_values_by_domains[variable] == min(number_of_values_by_domains.values())]
+        
+        if len(remaining_variables) == 1:
+            return remaining_variables_min_remaining_values[0]
+        
+        degree_by_variable = {variable : len(self.crossword.neighbors(variable)) for variable in remaining_variables_min_remaining_values}
+        remaining_min_degree = [variable for variable in remaining_variables_min_remaining_values if degree_by_variable[variable] == min(degree_by_variable.values())]
+        
+        return random.choice(remaining_min_degree)
 
     def backtrack(self, assignment):
         """
@@ -225,6 +246,7 @@ class CrosswordCreator():
 
         treated_var = self.select_unassigned_variable(assignment)
         possible_values = self.order_domain_values(treated_var, assignment)
+        
         for possible_value in possible_values:
             possible_assignment = assignment.copy()
             possible_assignment[treated_var] = possible_value
