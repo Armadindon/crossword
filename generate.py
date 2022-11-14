@@ -249,14 +249,21 @@ class CrosswordCreator():
 
         treated_var = self.select_unassigned_variable(assignment)
         possible_values = self.order_domain_values(treated_var, assignment)
+        domain = self.domains[treated_var]
         
         for possible_value in possible_values:
             possible_assignment = assignment.copy()
             possible_assignment[treated_var] = possible_value
 
+            # inference
+            self.domains[treated_var] = [possible_value]
+            self.ac3(arcs=[(treated_var, x) for x in self.crossword.neighbors(treated_var)])
+
             new_assignment = self.backtrack(possible_assignment)
             if new_assignment != None:
-                return new_assignment        
+                return new_assignment       
+
+        self.domains[treated_var] = domain 
         
 
 
